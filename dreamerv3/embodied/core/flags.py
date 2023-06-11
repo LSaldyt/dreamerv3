@@ -14,7 +14,7 @@ class Flags:
     for flag in remaining:
       if flag.startswith('--'):
         raise ValueError(f"Flag '{flag}' did not match any config keys.")
-    assert not remaining, remaining
+    # assert not remaining, remaining
     return parsed
 
   def parse_known(self, argv=None, help_exists=False):
