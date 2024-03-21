@@ -2,7 +2,6 @@ setuptools==65.5.0
 pip==21 
 wheel=0.38.0
 cloudpickle
-crafter
 gym==0.19.0
 jax
 jaxlib

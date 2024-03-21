@@ -7,11 +7,11 @@ class Crafter(embodied.Env):
   def __init__(self, task, size=(64, 64), outdir=None, seed=None):
     assert task in ('reward', 'noreward')
     import crafter
-    self._env = crafter.Env(size=size, reward=(task == 'reward'), seed=seed)
+    self.inner_env = crafter.Env(size=size, reward=(task == 'reward'), seed=seed)
     if outdir:
       outdir = embodied.Path(outdir)
-      self._env = crafter.Recorder(
-          self._env, outdir,
+      self.inner_env = crafter.Recorder(
+          self.inner_env, outdir,
           save_stats=True,
           save_video=False,
           save_episode=False,
@@ -22,7 +22,7 @@ class Crafter(embodied.Env):
   @property
   def obs_space(self):
     spaces = {
-        'image': embodied.Space(np.uint8, self._env.observation_space.shape),
+        'image': embodied.Space(np.uint8, self.inner_env.observation_space.shape),
         'reward': embodied.Space(np.float32),
         'is_first': embodied.Space(bool),
         'is_last': embodied.Space(bool),
@@ -37,16 +37,16 @@ class Crafter(embodied.Env):
   @property
   def act_space(self):
     return {
-        'action': embodied.Space(np.int32, (), 0, self._env.action_space.n),
+        'action': embodied.Space(np.int32, (), 0, self.inner_env.action_space.n),
         'reset': embodied.Space(bool),
     }
 
   def step(self, action):
     if action['reset'] or self._done:
       self._done = False
-      image = self._env.reset()
+      image = self.inner_env.reset()
       return self._obs(image, 0.0, {}, is_first=True)
-    image, reward, self._done, info = self._env.step(action['action'])
+    image, reward, self._done, info = self.inner_env.step(action['action'])
     reward = np.float32(reward)
     return self._obs(
         image, reward, info,
@@ -69,5 +69,5 @@ class Crafter(embodied.Env):
         **log_achievements,
     )
 
-  def render(self):
-    return self._env.render()
+  def render(self, *args, **kwargs):
+    return self.inner_env.render(*args, **kwargs)
