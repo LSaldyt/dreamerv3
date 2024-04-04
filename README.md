@@ -62,6 +62,17 @@ below.
 
 ## Manual
 
+### Custom
+I recommend doing everything in a Python virtualenv:  
+`python -m venv venv`  
+`source venv/bin/activate`  
+`pip install -r requirements.txt`  
+`pip install gym==0.19.0`  
+`cd crafter`  
+`pip install -e .`
+
+### Original
+
 Install [JAX][jax] and then the other dependencies:
 
 ```sh
