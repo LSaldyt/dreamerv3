@@ -128,7 +128,12 @@ class WorldModel(nj.Module):
     self.heads = {
         'decoder': nets.MultiDecoder(shapes, **config.decoder, name='dec'),
         'reward': nets.MLP((), **config.reward_head, name='rew'),
-        'cont': nets.MLP((), **config.cont_head, name='cont')}
+        'cont': nets.MLP((), **config.cont_head, name='cont'),
+        }
+    self.aux = {
+        'info': nets.MLP((), **config.info_head, name='info'),
+        'sparse': nets.MLP((), **config.sparse_head, name='sparse')
+        }
     self.opt = jaxutils.Optimizer(name='model_opt', **config.model_opt)
     scales = self.config.loss_scales.copy()
     image, vector = scales.pop('image'), scales.pop('vector')

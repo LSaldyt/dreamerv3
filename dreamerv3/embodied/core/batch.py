@@ -37,6 +37,9 @@ class BatchEnv(base.Env):
   def render(self):
     return np.stack([env.render() for env in self._envs])
 
+  def symbols(self):
+    return np.stack([env.symbols() for env in self._envs])
+
   def close(self):
     for env in self._envs:
       try:

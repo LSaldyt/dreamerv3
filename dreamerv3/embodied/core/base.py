@@ -88,6 +88,8 @@ class Wrapper:
     try:
       return getattr(self.env, name)
     except AttributeError:
+      print(type(self.env))
+      print(dir(self.env))
       raise ValueError(name)
 
 

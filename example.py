@@ -66,7 +66,7 @@ def main():
       if len(data) < episode + 1:
           data.append([])
       else:
-          data[episode].append(tuple(map(np.ravel, (obs['image'], latent['deter'], latent['stoch']))))
+          data[episode].append(tuple(map(np.ravel, (obs['image'], latent['deter'], latent['stoch'], env.symbols()))))
 
   try:
     replay = embodied.replay.Uniform(
@@ -89,16 +89,10 @@ def main():
           # first dim is number of steps, variable
           # 12288, 1024, 1024
           l = []
-          for obs, h, z in saved:
-              print('hz mi')
-              print(calc_MI(h, z, 16))
+          for obs, h, z, sym in saved:
               pad = np.zeros(obs.shape[0] - h.shape[0])
               h_pad = np.concatenate((h, pad), 0)
               z_pad = np.concatenate((z, pad), 0)
-              print('obs-h mi')
-              print(calc_MI(obs, h_pad, 16))
-              print('obs-z mi')
-              print(calc_MI(obs, z_pad, 16))
               l.append((calc_MI(h, z, 16), calc_MI(obs, z_pad, 16), calc_MI(obs, h_pad, 16)))
           print(dict(episode=episode, h_z_mi=avg(l[0]), obs_z_mi=avg(l[1]), obs_h_mi=avg(l[2])))
           writer.writerow(dict(episode=episode, h_z_mi=avg(l[0]), obs_z_mi=avg(l[1]), obs_h_mi=avg(l[2])))

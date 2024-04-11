@@ -49,7 +49,10 @@ class Driver:
     obs = {k: convert(v) for k, v in obs.items()}
     assert all(len(x) == len(self._env) for x in obs.values()), obs
     acts, self._state = policy(obs, self._state, **self._kwargs)
-    latent = self._state[0][0]
+    try:
+        latent = self._state[0][0]
+    except:
+        latent = None
     self.save_callback(self._env, obs, latent, step, episode)
 
     acts = {k: convert(v) for k, v in acts.items()}

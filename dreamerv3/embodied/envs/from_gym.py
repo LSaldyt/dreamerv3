@@ -64,6 +64,16 @@ class FromGym(embodied.Env):
         is_last=bool(self._done),
         is_terminal=bool(self._info.get('is_terminal', self._done)))
 
+  def __getattr__(self, name):
+    if name.startswith('__'):
+      raise AttributeError(name)
+    try:
+      return getattr(self._env, name)
+    except AttributeError:
+      print(type(self._env))
+      print(dir(self._env))
+      raise ValueError(name)
+
   def _obs(
       self, obs, reward, is_first=False, is_last=False, is_terminal=False):
     if not self._obs_dict:
