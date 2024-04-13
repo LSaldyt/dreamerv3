@@ -53,9 +53,14 @@ def main():
   env = dreamerv3.wrap_env(env, config)
   env = embodied.BatchEnv([env], parallel=False)
 
-  # TODO move into a per-step function
-  agent = dreamerv3.Agent(env.obs_space, env.act_space, step, config)
+  def ablation_callback(*args):
+      print('ABLATION CALLBACK')
+      print(args)
+      exit()
+
+  agent = dreamerv3.Agent(env.obs_space, env.act_space, step, config, ablation_callback)
   data = []
+
 
   def save_callback(env, obs, latent, step, episode):
       # try:
@@ -79,23 +84,30 @@ def main():
       pass
 
   # to_mx = lambda l : np.concatenate([np.expand_dims(el, 0) for el in l], 0)
-  avg = lambda l : sum(l) / len(l)
+  avg      = lambda l : sum(l) / len(l)
+  make_pad = lambda a, b : np.zeros(np.abs(a.shape[0] - b.shape[0]))
+  cat      = lambda c, p : np.concatenate((c, p), 0)
 
   with open('data.csv', 'w') as csvfile:
-      writer = csv.DictWriter(csvfile, fieldnames=['episode', 'h_z_mi', 'obs_h_mi', 'obs_z_mi'])
+      fieldnames = ['episode', 'h_z_mi', 'obs_h_mi', 'obs_z_mi', 'sym_h_mi', 'sym_z_mi']
+      writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+      writer.writeheader()
 
-      print(data)
       for episode, saved in enumerate(data):
           # first dim is number of steps, variable
           # 12288, 1024, 1024
           l = []
           for obs, h, z, sym in saved:
-              pad = np.zeros(obs.shape[0] - h.shape[0])
-              h_pad = np.concatenate((h, pad), 0)
-              z_pad = np.concatenate((z, pad), 0)
-              l.append((calc_MI(h, z, 16), calc_MI(obs, z_pad, 16), calc_MI(obs, h_pad, 16)))
-          print(dict(episode=episode, h_z_mi=avg(l[0]), obs_z_mi=avg(l[1]), obs_h_mi=avg(l[2])))
-          writer.writerow(dict(episode=episode, h_z_mi=avg(l[0]), obs_z_mi=avg(l[1]), obs_h_mi=avg(l[2])))
+              local = []
+              for source in (obs, sym):
+                  pad = make_pad(source, h)
+                  for latent in (h, z):
+                      padded = cat(latent, pad)
+                      local.append(calc_MI(padded, source, 16))
+              l.append((calc_MI(h, z, 16),) + tuple(local))
+          row = dict(episode=episode, **{f : avg(l[i]) for i, f in enumerate(fieldnames[1:])})
+          print(row)
+          writer.writerow(row)
 
   # embodied.run.eval_only(agent, env, logger, args)
 

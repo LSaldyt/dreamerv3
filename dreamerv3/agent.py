@@ -25,12 +25,12 @@ class Agent(nj.Module):
   configs = yaml.YAML(typ='safe').load(
       (embodied.Path(__file__).parent / 'configs.yaml').read())
 
-  def __init__(self, obs_space, act_space, step, config):
+  def __init__(self, obs_space, act_space, step, config, ablation_callback):
     self.config = config
     self.obs_space = obs_space
     self.act_space = act_space['action']
     self.step = step
-    self.wm = WorldModel(obs_space, act_space, config, name='wm')
+    self.wm = WorldModel(obs_space, act_space, config, ablation_callback, name='wm')
     self.task_behavior = getattr(behaviors, config.task_behavior)(
         self.wm, self.act_space, self.config, name='task_behavior')
     if config.expl_behavior == 'None':
@@ -117,7 +117,7 @@ class Agent(nj.Module):
 
 class WorldModel(nj.Module):
 
-  def __init__(self, obs_space, act_space, config):
+  def __init__(self, obs_space, act_space, config, ablation_callback):
     self.obs_space = obs_space
     self.act_space = act_space['action']
     self.config = config
@@ -130,16 +130,18 @@ class WorldModel(nj.Module):
         'reward': nets.MLP((), **config.reward_head, name='rew'),
         'cont': nets.MLP((), **config.cont_head, name='cont'),
         }
-    self.aux = {
-        'info': nets.MLP((), **config.info_head, name='info'),
-        'sparse': nets.MLP((), **config.sparse_head, name='sparse')
-        }
+    self.extra = dict()
+    if config.sparse_autoencoder:
+        self.extra['sparse'] = nets.MLP((), **config.sparse_head, name='sparse')
+    if config.info_regularization:
+        self.extra['info']   = nets.MLP((), **config.info_head,   name='info')
     self.opt = jaxutils.Optimizer(name='model_opt', **config.model_opt)
     scales = self.config.loss_scales.copy()
     image, vector = scales.pop('image'), scales.pop('vector')
-    scales.update({k: image for k in self.heads['decoder'].cnn_shapes})
+    scales.update({k: image  for k in self.heads['decoder'].cnn_shapes})
     scales.update({k: vector for k in self.heads['decoder'].mlp_shapes})
     self.scales = scales
+    self.ablation_callback = ablation_callback
 
   def initial(self, batch_size):
     prev_latent = self.rssm.initial(batch_size)
@@ -147,7 +149,7 @@ class WorldModel(nj.Module):
     return prev_latent, prev_action
 
   def train(self, data, state):
-    modules = [self.encoder, self.rssm, *self.heads.values()]
+    modules = [self.encoder, self.rssm, *self.heads.values(), *self.extra.values()]
     mets, (state, outs, metrics) = self.opt(
         modules, self.loss, data, state, has_aux=True)
     metrics.update(mets)
@@ -166,7 +168,9 @@ class WorldModel(nj.Module):
       out = head(feats if name in self.config.grad_heads else sg(feats))
       out = out if isinstance(out, dict) else {name: out}
       dists.update(out)
+
     losses = {}
+    self.ablation_callback(feats, dists, losses, self.extra, self.config)
     losses['dyn'] = self.rssm.dyn_loss(post, prior, **self.config.dyn_loss)
     losses['rep'] = self.rssm.rep_loss(post, prior, **self.config.rep_loss)
     for key, dist in dists.items():

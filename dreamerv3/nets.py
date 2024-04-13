@@ -417,7 +417,7 @@ class MLP(nj.Module):
     distkeys = (
         'dist', 'outscale', 'minstd', 'maxstd', 'outnorm', 'unimix', 'bins')
     self._dense = {k: v for k, v in kw.items() if k not in distkeys}
-    self._dist = {k: v for k, v in kw.items() if k in distkeys}
+    self._dist  = {k: v for k, v in kw.items() if k in distkeys}
 
   def __call__(self, inputs):
     feat = self._inputs(inputs)
@@ -458,8 +458,9 @@ class Dist(nj.Module):
 
   def __call__(self, inputs):
     dist = self.inner(inputs)
-    assert tuple(dist.batch_shape) == tuple(inputs.shape[:-1]), (
-        dist.batch_shape, dist.event_shape, inputs.shape)
+    if hasattr(dist, 'batch_shape'):
+        assert tuple(dist.batch_shape) == tuple(inputs.shape[:-1]), (
+            dist.batch_shape, dist.event_shape, inputs.shape)
     return dist
 
   def inner(self, inputs):
@@ -481,6 +482,8 @@ class Dist(nj.Module):
           out, len(self._shape), -20, 20, jaxutils.symlog, jaxutils.symexp)
     if self._dist == 'mse':
       return jaxutils.MSEDist(out, len(self._shape), 'sum')
+    if self._dist == 'none':
+      return out
     if self._dist == 'normal':
       lo, hi = self._minstd, self._maxstd
       std = (hi - lo) * jax.nn.sigmoid(std + 2.0) + lo
