@@ -131,9 +131,10 @@ class WorldModel(nj.Module):
         'cont': nets.MLP((), **config.cont_head, name='cont'),
         }
     self.extra = dict()
-    if config.sparse_autoencoder:
+    print(self.config.sparse_autoencoder)
+    if self.config.sparse_autoencoder:
         self.extra['sparse'] = nets.MLP((), **config.sparse_head, name='sparse')
-    if config.info_regularization:
+    if self.config.info_regularization:
         self.extra['info']   = nets.MLP((), **config.info_head,   name='info')
     self.opt = jaxutils.Optimizer(name='model_opt', **config.model_opt)
     scales = self.config.loss_scales.copy()
@@ -170,7 +171,7 @@ class WorldModel(nj.Module):
       dists.update(out)
 
     losses = {}
-    self.ablation_callback(feats, dists, losses, self.extra, self.config)
+    self.ablation_callback(data, feats, dists, losses, self.extra, self.config)
     losses['dyn'] = self.rssm.dyn_loss(post, prior, **self.config.dyn_loss)
     losses['rep'] = self.rssm.rep_loss(post, prior, **self.config.rep_loss)
     for key, dist in dists.items():
