@@ -433,7 +433,6 @@ class Module(object, metaclass=ModuleMeta):
       if pattern.match(key[len(prefix):]):
         results[key] = value
     if not allow_empty and not results:
-        # print(f'WARNING: Pattern {pattern} matched no state keys.')
         raise KeyError(f'Pattern {pattern} matched no state keys.')
     return results
 

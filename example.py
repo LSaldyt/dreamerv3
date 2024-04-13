@@ -5,16 +5,13 @@ import jax.numpy as jnp
 import jax
 
 def run_sparse_autoencoder(enc, dec, feats):
-    print('Input shapes')
-    print(feats['stoch'].shape)
-    print(feats['deter'].shape)
+    print('Called sparse autoencoder')
     feats  = {k : jnp.squeeze(v) for k, v in feats.items()}
     latent = enc(feats)
     result = dec(latent)
-    print('Sparse autoencoder shapes')
-    print(latent.shape)
-    print(result.shape)
     # TODO Use result in the network, e.g. replace h_t with result
+    if len(latent.shape) < 2:
+        latent = jnp.expand_dims(latent, 0)
     return dict(
         sparse_latent=latent,
         loss=jnp.linalg.norm(latent, ord=1, axis=-1) # L1 norm regularization term
@@ -26,6 +23,7 @@ def run_info_regularization(discrete, continuous, feats):
     print(discrete_predictions)
     print(continuous_predictions)
     # TODO Add the mutual information proxy function here...
+    raise NotImplementedError('No mutual info proxy loss defined')
     loss = jnp.array([0.0])
     return dict(
         discrete=discrete_predictions,
@@ -34,8 +32,6 @@ def run_info_regularization(discrete, continuous, feats):
         )
 
 def ablation_callback(data, feats, dists, extra, config):
-    jax.debug.print('ABLATION CALLBACK')
-    # pprint((data, feats, dists, extra))
     results = dict()
     losses  = dict()
     if config.sparse_autoencoder:

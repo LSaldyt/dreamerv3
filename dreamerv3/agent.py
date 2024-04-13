@@ -56,13 +56,10 @@ class Agent(nj.Module):
     embed = self.wm.encoder(obs)
     latent, _ = self.wm.rssm.obs_step(
         prev_latent, prev_action, embed, obs['is_first'])
-    self.expl_behavior.policy(latent, expl_state)
-    print(latent['deter'].shape)
-    print(latent['stoch'].shape)
     results, _ = self.wm.ablation_callback(dict(), latent, dict(), self.wm.extra, self.config)
-    pprint(results)
-    print(results['sparse_latent'].shape)
-    exit()
+    if self.config.sparse_autoencoder:
+        latent['deter'] = results['sparse_latent']
+    self.expl_behavior.policy(latent, expl_state)
     task_outs, task_state = self.task_behavior.policy(latent, task_state)
     expl_outs, expl_state = self.expl_behavior.policy(latent, expl_state)
     if mode == 'eval':
@@ -136,6 +133,7 @@ class WorldModel(nj.Module):
         'decoder': nets.MultiDecoder(shapes, **config.decoder, name='dec'),
         'reward': nets.MLP((), **config.reward_head, name='rew'),
         'cont': nets.MLP((), **config.cont_head, name='cont'),
+        'other': nets.MLP((), **config.cont_head, name='other'),
         }
     self.extra = dict()
     if self.config.sparse_autoencoder:
@@ -160,7 +158,6 @@ class WorldModel(nj.Module):
     return prev_latent, prev_action
 
   def train(self, data, state):
-    jax.debug.print('WITHIN WM TRAIN')
     modules = [self.encoder, self.rssm, *self.heads.values(), *self.extra.values()]
     mets, (state, outs, metrics) = self.opt(
         modules, self.loss, data, state, has_aux=True)
@@ -168,6 +165,7 @@ class WorldModel(nj.Module):
     return state, outs, metrics
 
   def loss(self, data, state):
+    print('In WM loss')
     embed = self.encoder(data)
     prev_latent, prev_action = state
     prev_actions = jnp.concatenate([
@@ -182,11 +180,13 @@ class WorldModel(nj.Module):
       dists.update(out)
 
     losses = {}
-    jax.debug.print('IN WORLD MODEL LOSS')
     ablation_data, ablation_losses = self.ablation_callback(data, feats, dists, self.extra, self.config)
-    losses.update(ablation_losses)
+    if self.config.sparse_autoencoder:
+        post['deter'] = ablation_data['sparse_latent']
+        losses.update(ablation_losses)
     losses['dyn'] = self.rssm.dyn_loss(post, prior, **self.config.dyn_loss)
     losses['rep'] = self.rssm.rep_loss(post, prior, **self.config.rep_loss)
+    data['other'] = data['cont']
     for key, dist in dists.items():
       loss = -dist.log_prob(data[key].astype(jnp.float32))
       assert loss.shape == embed.shape[:2], (key, loss.shape)
@@ -214,6 +214,9 @@ class WorldModel(nj.Module):
         step, jnp.arange(horizon), start, self.config.imag_unroll)
     traj = {
         k: jnp.concatenate([start[k][None], v], 0) for k, v in traj.items()}
+    results, _ = self.ablation_callback(dict(), traj, dict(), self.extra, self.config)
+    if self.config.sparse_autoencoder:
+        traj['deter'] = results['sparse_latent']
     cont = self.heads['cont'](traj).mode()
     traj['cont'] = jnp.concatenate([first_cont[None], cont[1:]], 0)
     discount = 1 - 1 / self.config.horizon
