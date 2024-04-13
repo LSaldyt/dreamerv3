@@ -4,7 +4,7 @@ import embodied
 import numpy as np
 
 
-def train(agent, env, replay, logger, args, save_callback, ablation_callback):
+def train(agent, env, replay, logger, args, save_callback):
 
   logdir = embodied.Path(args.logdir)
   logdir.mkdirs()
@@ -54,7 +54,7 @@ def train(agent, env, replay, logger, args, save_callback, ablation_callback):
         stats[f'max_{key}'] = ep[key].max(0).mean()
     metrics.add(stats, prefix='stats')
 
-  driver = embodied.Driver(env, save_callback, ablation_callback)
+  driver = embodied.Driver(env, save_callback)
   driver.on_episode(lambda ep, worker: per_episode(ep))
   driver.on_step(lambda tran, _: step.increment())
   driver.on_step(replay.add)

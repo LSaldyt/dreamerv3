@@ -1,21 +1,52 @@
 from rich.pretty import pprint
 
 from boilerplate import run_env 
+import jax.numpy as jnp
+import jax
 
-def run_sparse_autoencoder(losses):
-    pass
+def run_sparse_autoencoder(enc, dec, feats):
+    print('Input shapes')
+    print(feats['stoch'].shape)
+    print(feats['deter'].shape)
+    feats  = {k : jnp.squeeze(v) for k, v in feats.items()}
+    latent = enc(feats)
+    result = dec(latent)
+    print('Sparse autoencoder shapes')
+    print(latent.shape)
+    print(result.shape)
+    # TODO Use result in the network, e.g. replace h_t with result
+    return dict(
+        sparse_latent=latent,
+        loss=jnp.linalg.norm(latent, ord=1, axis=-1) # L1 norm regularization term
+        )
 
-def run_info_regularization(losses):
-    pass
+def run_info_regularization(discrete, continuous, feats):
+    discrete_predictions   = discrete(feats)
+    continuous_predictions = continuous(feats)
+    print(discrete_predictions)
+    print(continuous_predictions)
+    # TODO Add the mutual information proxy function here...
+    loss = jnp.array([0.0])
+    return dict(
+        discrete=discrete_predictions,
+        continuous=continuous_predictions,
+        loss=loss
+        )
 
-def ablation_callback(data, feats, dists, losses, extra, config):
-    print('ABLATION CALLBACK')
-    pprint((data, feats, dists, losses, extra))
+def ablation_callback(data, feats, dists, extra, config):
+    jax.debug.print('ABLATION CALLBACK')
+    # pprint((data, feats, dists, extra))
+    results = dict()
+    losses  = dict()
     if config.sparse_autoencoder:
-        run_sparse_autoencoder(losses)
+        sparse = run_sparse_autoencoder(extra['sparse_enc'], extra['sparse_dec'], feats)
+        losses['sparse_autoencoder']  = sparse['loss']
+        results.update(**{k : v for k, v in sparse.items() if k != 'loss'})
     if config.info_regularization:
-        run_info_regularization(losses)
-    exit()
+        info   = run_info_regularization(extra['info_discrete'], extra['info_continuous'], feats)
+        losses['info_regularization'] = info['loss']
+        results.update(**{k : v for k, v in info.items() if k != 'loss'})
+    return results, losses
 
 def save_callback(env, obs, latent, step, episode):
     pass

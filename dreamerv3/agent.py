@@ -2,6 +2,7 @@ import embodied
 import jax
 import jax.numpy as jnp
 import ruamel.yaml as yaml
+from rich.pretty import pprint
 tree_map = jax.tree_util.tree_map
 sg = lambda x: tree_map(jax.lax.stop_gradient, x)
 
@@ -56,6 +57,12 @@ class Agent(nj.Module):
     latent, _ = self.wm.rssm.obs_step(
         prev_latent, prev_action, embed, obs['is_first'])
     self.expl_behavior.policy(latent, expl_state)
+    print(latent['deter'].shape)
+    print(latent['stoch'].shape)
+    results, _ = self.wm.ablation_callback(dict(), latent, dict(), self.wm.extra, self.config)
+    pprint(results)
+    print(results['sparse_latent'].shape)
+    exit()
     task_outs, task_state = self.task_behavior.policy(latent, task_state)
     expl_outs, expl_state = self.expl_behavior.policy(latent, expl_state)
     if mode == 'eval':
@@ -131,11 +138,14 @@ class WorldModel(nj.Module):
         'cont': nets.MLP((), **config.cont_head, name='cont'),
         }
     self.extra = dict()
-    print(self.config.sparse_autoencoder)
     if self.config.sparse_autoencoder:
-        self.extra['sparse'] = nets.MLP((), **config.sparse_head, name='sparse')
+        for k, v in config.sparse.items():
+            name = f'sparse_{k}'
+            self.extra[name] = nets.MLP(None, **v, name=name)
     if self.config.info_regularization:
-        self.extra['info']   = nets.MLP((), **config.info_head,   name='info')
+        for k, v in config.info.items():
+            name = f'info_{k}'
+            self.extra[name] = nets.MLP((), **v, name=name)
     self.opt = jaxutils.Optimizer(name='model_opt', **config.model_opt)
     scales = self.config.loss_scales.copy()
     image, vector = scales.pop('image'), scales.pop('vector')
@@ -150,6 +160,7 @@ class WorldModel(nj.Module):
     return prev_latent, prev_action
 
   def train(self, data, state):
+    jax.debug.print('WITHIN WM TRAIN')
     modules = [self.encoder, self.rssm, *self.heads.values(), *self.extra.values()]
     mets, (state, outs, metrics) = self.opt(
         modules, self.loss, data, state, has_aux=True)
@@ -171,7 +182,9 @@ class WorldModel(nj.Module):
       dists.update(out)
 
     losses = {}
-    self.ablation_callback(data, feats, dists, losses, self.extra, self.config)
+    jax.debug.print('IN WORLD MODEL LOSS')
+    ablation_data, ablation_losses = self.ablation_callback(data, feats, dists, self.extra, self.config)
+    losses.update(ablation_losses)
     losses['dyn'] = self.rssm.dyn_loss(post, prior, **self.config.dyn_loss)
     losses['rep'] = self.rssm.rep_loss(post, prior, **self.config.rep_loss)
     for key, dist in dists.items():

@@ -58,7 +58,7 @@ class RSSM(nj.Module):
     inputs = swap(action), swap(embed), swap(is_first)
     start = state, state
     post, prior = jaxutils.scan(step, inputs, start, self._unroll)
-    post = {k: swap(v) for k, v in post.items()}
+    post  = {k: swap(v) for k, v in post.items()}
     prior = {k: swap(v) for k, v in prior.items()}
     return post, prior
 
