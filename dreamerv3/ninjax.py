@@ -406,6 +406,7 @@ class Module(object, metaclass=ModuleMeta):
       return self._submodules[name]
     if path in context():
       return context()[path]
+
     ctor, *args = args
     if 'name' in inspect.signature(ctor).parameters:
       kwargs['name'] = name
@@ -433,7 +434,7 @@ class Module(object, metaclass=ModuleMeta):
       if pattern.match(key[len(prefix):]):
         results[key] = value
     if not allow_empty and not results:
-        raise KeyError(f'Pattern {pattern} matched no state keys.')
+        raise KeyError(f'Pattern {pattern} matched no state keys for prefix {self.path}.')
     return results
 
   def putm(self, mapping):

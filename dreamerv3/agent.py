@@ -130,10 +130,9 @@ class WorldModel(nj.Module):
     self.encoder = nets.MultiEncoder(shapes, **config.encoder, name='enc')
     self.rssm = nets.RSSM(**config.rssm, name='rssm')
     self.heads = {
-        'decoder': nets.MultiDecoder(shapes, **config.decoder, name='dec'),
-        'reward': nets.MLP((), **config.reward_head, name='rew'),
-        'cont': nets.MLP((), **config.cont_head, name='cont'),
-        'other': nets.MLP((), **config.cont_head, name='other'),
+        'decoder' : nets.MultiDecoder(shapes, **config.decoder, name='decoder'),
+        'reward' : nets.MLP((), **config.reward_head, name='rew'),
+        'cont'  : nets.MLP((), **config.cont_head, name='cont'),
         }
     self.extra = dict()
     if self.config.sparse_autoencoder:
@@ -159,13 +158,14 @@ class WorldModel(nj.Module):
 
   def train(self, data, state):
     modules = [self.encoder, self.rssm, *self.heads.values(), *self.extra.values()]
+    print(modules)
     mets, (state, outs, metrics) = self.opt(
         modules, self.loss, data, state, has_aux=True)
     metrics.update(mets)
     return state, outs, metrics
 
   def loss(self, data, state):
-    print('In WM loss')
+    print('In WM loss', flush=True)
     embed = self.encoder(data)
     prev_latent, prev_action = state
     prev_actions = jnp.concatenate([
@@ -186,7 +186,6 @@ class WorldModel(nj.Module):
         losses.update(ablation_losses)
     losses['dyn'] = self.rssm.dyn_loss(post, prior, **self.config.dyn_loss)
     losses['rep'] = self.rssm.rep_loss(post, prior, **self.config.rep_loss)
-    data['other'] = data['cont']
     for key, dist in dists.items():
       loss = -dist.log_prob(data[key].astype(jnp.float32))
       assert loss.shape == embed.shape[:2], (key, loss.shape)
