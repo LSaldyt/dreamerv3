@@ -1,6 +1,6 @@
 from dreamerv3.embodied.core.basics import convert
 
-def run_env(save_callback, ablation_callback):
+def run_env(save_callback, ablation_callback, size='medium'):
   import warnings
   import dreamerv3
   from dreamerv3 import embodied
@@ -8,7 +8,7 @@ def run_env(save_callback, ablation_callback):
 
   # See configs.yaml for all options.
   config = embodied.Config(dreamerv3.configs['defaults'])
-  config = config.update(dreamerv3.configs['medium'])
+  config = config.update(dreamerv3.configs[size])
   config = config.update({
       'logdir': '~/logdir/run1',
       'run.train_ratio': 64,

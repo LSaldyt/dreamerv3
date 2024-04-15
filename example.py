@@ -2,7 +2,7 @@ from rich.pretty import pprint
 
 from boilerplate import run_env 
 import jax.numpy as jnp
-import jax
+import numpy     as np
 
 def run_sparse_autoencoder(enc, dec, feats):
     print('Called sparse autoencoder')
@@ -44,56 +44,35 @@ def ablation_callback(data, feats, dists, extra, config):
         results.update(**{k : v for k, v in info.items() if k != 'loss'})
     return results, losses
 
+make_pad = lambda a, b : np.zeros(np.abs(a.shape[0] - b.shape[0]))
+cat      = lambda c, p : np.concatenate((c, p), 0)
+
+_save_callback_last_episode = 0  # Global
+_save_callback_data         = [] # Global
 def save_callback(env, obs, latent, step, episode):
-    pass
+    global _save_callback_last_episode # Sorry
+    global _save_callback_data         # Sorry
+
+    if latent is None:
+        return
+
+    h_t = latent['deter']
+    s_t = np.expand_dims(np.ravel(env.symbols()), 0)
+
+    _save_callback_data.append((h_t, s_t))
+
+    if episode > _save_callback_last_episode:
+        h_ts, s_ts = map(lambda a : np.concatenate(a, axis=0),
+                         zip(*_save_callback_data))
+
+        vars = np.concatenate((h_ts, s_ts), 1).T
+        R = np.corrcoef(vars)
+        np.savez(f'data/{episode}.npz', R)
+        _save_callback_data = [] # Clear
 
 def main():
-    run_env(save_callback, ablation_callback)
+    run_env(save_callback, ablation_callback, size='nano')
 
 if __name__ == '__main__':
-  main()
-
-# TODO Rewrite the save callback
-# from sklearn.metrics import mutual_info_score
-# def calc_MI(x, y, bins):
-#     ''' Courtesy of stack overflow '''
-#     c_xy = np.histogram2d(x, y, bins)[0]
-#     mi = mutual_info_score(None, None, contingency=c_xy)
-#     return mi
-# 
-# Don't grow the data list. Dump every episode.
-# try:
-#     obs_large = env.render(size=np.array([128, 128]))
-# except Exception as e:
-#     print(e)
-#     obs_large = None
-# if len(data) < episode + 1:
-#     data.append([])
-# else:
-#     data[episode].append(tuple(map(np.ravel, (obs['image'], latent['deter'], latent['stoch'], env.symbols()))))
-# # to_mx = lambda l : np.concatenate([np.expand_dims(el, 0) for el in l], 0)
-# avg      = lambda l : sum(l) / len(l)
-# make_pad = lambda a, b : np.zeros(np.abs(a.shape[0] - b.shape[0]))
-# cat      = lambda c, p : np.concatenate((c, p), 0)
-# 
-# with open('data.csv', 'w') as csvfile:
-#     fieldnames = ['episode', 'h_z_mi', 'obs_h_mi', 'obs_z_mi', 'sym_h_mi', 'sym_z_mi']
-#     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-#     writer.writeheader()
-# 
-#     for episode, saved in enumerate(data):
-#         # first dim is number of steps, variable
-#         # 12288, 1024, 1024
-#         l = []
-#         for obs, h, z, sym in saved:
-#             local = []
-#             for source in (obs, sym):
-#                 pad = make_pad(source, h)
-#                 for latent in (h, z):
-#                     padded = cat(latent, pad)
-#                     local.append(calc_MI(padded, source, 16))
-#             l.append((calc_MI(h, z, 16),) + tuple(local))
-#         row = dict(episode=episode, **{f : avg(l[i]) for i, f in enumerate(fieldnames[1:])})
-#         print(row)
-#         writer.writerow(row)
+    main()
 
