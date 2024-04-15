@@ -58,7 +58,8 @@ class Agent(nj.Module):
         prev_latent, prev_action, embed, obs['is_first'])
     results, _ = self.wm.ablation_callback(dict(), latent, dict(), self.wm.extra, self.config)
     if self.config.sparse_autoencoder:
-        latent['deter'] = results['sparse_latent']
+        latent['deter']  = results['sparse_latent']
+        # latent['sparse'] = results['sparse_latent']
     self.expl_behavior.policy(latent, expl_state)
     task_outs, task_state = self.task_behavior.policy(latent, task_state)
     expl_outs, expl_state = self.expl_behavior.policy(latent, expl_state)

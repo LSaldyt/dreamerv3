@@ -47,10 +47,10 @@ def ablation_callback(data, feats, dists, extra, config):
 make_pad = lambda a, b : np.zeros(np.abs(a.shape[0] - b.shape[0]))
 cat      = lambda c, p : np.concatenate((c, p), 0)
 
-_save_callback_last_episode = 0  # Global
-_save_callback_data         = [] # Global
-def save_callback(env, obs, latent, step, episode):
-    global _save_callback_last_episode # Sorry
+_save_callback_episode = 0
+_save_callback_data    = [] # Global
+def save_callback(env, obs, latent, step, episode, is_done):
+    global _save_callback_episode # Sorry
     global _save_callback_data         # Sorry
 
     if latent is None:
@@ -61,14 +61,19 @@ def save_callback(env, obs, latent, step, episode):
 
     _save_callback_data.append((h_t, s_t))
 
-    if episode > _save_callback_last_episode:
+    if is_done:
         h_ts, s_ts = map(lambda a : np.concatenate(a, axis=0),
                          zip(*_save_callback_data))
 
         vars = np.concatenate((h_ts, s_ts), 1).T
+        vars += 1e-8 # epsilon
         R = np.corrcoef(vars)
-        np.savez(f'data/{episode}.npz', R)
+        print(R)
+        path = f'data/{_save_callback_episode}.npz'
+        np.savez(path, R)
+        print(f'Wrote {path}')
         _save_callback_data = [] # Clear
+        _save_callback_episode += 1
 
 def main():
     run_env(save_callback, ablation_callback, size='nano')

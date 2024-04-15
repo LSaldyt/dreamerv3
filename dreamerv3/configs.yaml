@@ -82,7 +82,7 @@ defaults:
   rep_loss: {impl: kl, free: 1.0}
   model_opt: {opt: adam, lr: 1e-4, eps: 1e-8, clip: 1000.0, wd: 0.0, warmup: 0, lateclip: 0.0}
 
-  sparse_autoencoder: true
+  sparse_autoencoder:  false
   info_regularization: false
 
   # Actor Critic

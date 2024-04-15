@@ -53,7 +53,7 @@ class Driver:
         latent = self._state[0][0]
     except:
         latent = None
-    self.save_callback(self._env, obs, latent, step, episode)
+    self.save_callback(self._env, obs, latent, step, episode, obs['is_last'].any())
 
     acts = {k: convert(v) for k, v in acts.items()}
     if obs['is_last'].any():
